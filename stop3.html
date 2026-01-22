@@ -162,7 +162,7 @@
     <div class="status" id="status">Hold SPACEBAR to start</div>
     <div class="result" id="result"></div>
     <div class="instructions">
-        Hold the spacebar. Colors and shapes change independently.<br>
+        Hold the spacebar. Color and shape change together.<br>
         Release ONLY when you see the target shape in RED!
     </div>
     <div class="history" id="history"></div>
@@ -176,8 +176,7 @@
         const history = document.getElementById('history');
 
         let state = 'waiting'; // waiting, holding, measuring
-        let colorCycleTimeout = null;
-        let shapeCycleTimeout = null;
+        let cycleTimeout = null;
         let startTime = null;
         let results = [];
         let currentColor = null;
@@ -197,21 +196,15 @@
             lightShape.textContent = '';
         }
 
-        function setColor(color) {
+        function setColorAndShape(color, shape) {
             light.classList.remove('red', 'green', 'yellow', 'orange', 'blue', 'purple');
             light.classList.add(color);
-            currentColor = color;
-            checkStopSignal();
-        }
-
-        function setShape(shape) {
             lightShape.textContent = shape.symbol;
+            currentColor = color;
             currentShape = shape;
-            checkStopSignal();
-        }
 
-        function checkStopSignal() {
-            if (state === 'holding' && currentColor === 'red' && currentShape && currentShape.name === stopShape.name) {
+            // Check if this is the stop signal
+            if (state === 'holding' && color === 'red' && shape.name === stopShape.name) {
                 state = 'measuring';
                 stopColorCycling();
                 status.textContent = 'RELEASE NOW!';
@@ -227,25 +220,15 @@
             return shapes[Math.floor(Math.random() * shapes.length)];
         }
 
-        function getRandomColorInterval() {
+        function getRandomInterval() {
             return 300 + Math.random() * 500; // 300-800ms
         }
 
-        function getRandomShapeInterval() {
-            return 400 + Math.random() * 600; // 400-1000ms
-        }
-
         function startColorCycling() {
-            function cycleColor() {
+            function cycle() {
                 if (state !== 'holding') return;
-                setColor(getRandomColor());
-                colorCycleTimeout = setTimeout(cycleColor, getRandomColorInterval());
-            }
-
-            function cycleShape() {
-                if (state !== 'holding') return;
-                setShape(getRandomShape());
-                shapeCycleTimeout = setTimeout(cycleShape, getRandomShapeInterval());
+                setColorAndShape(getRandomColor(), getRandomShape());
+                cycleTimeout = setTimeout(cycle, getRandomInterval());
             }
 
             // Start with a non-stop combo
@@ -255,21 +238,14 @@
                 firstShape = getRandomShape();
             } while (firstColor === 'red' && firstShape.name === stopShape.name);
 
-            setColor(firstColor);
-            setShape(firstShape);
-
-            colorCycleTimeout = setTimeout(cycleColor, getRandomColorInterval());
-            shapeCycleTimeout = setTimeout(cycleShape, getRandomShapeInterval());
+            setColorAndShape(firstColor, firstShape);
+            cycleTimeout = setTimeout(cycle, getRandomInterval());
         }
 
         function stopColorCycling() {
-            if (colorCycleTimeout) {
-                clearTimeout(colorCycleTimeout);
-                colorCycleTimeout = null;
-            }
-            if (shapeCycleTimeout) {
-                clearTimeout(shapeCycleTimeout);
-                shapeCycleTimeout = null;
+            if (cycleTimeout) {
+                clearTimeout(cycleTimeout);
+                cycleTimeout = null;
             }
         }
 
