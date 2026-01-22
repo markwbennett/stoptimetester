@@ -43,6 +43,21 @@
             box-shadow: 0 0 60px #2ecc71;
         }
 
+        .light.yellow {
+            background: #f1c40f;
+            box-shadow: 0 0 60px #f1c40f;
+        }
+
+        .light.orange {
+            background: #e67e22;
+            box-shadow: 0 0 60px #e67e22;
+        }
+
+        .light.blue {
+            background: #3498db;
+            box-shadow: 0 0 60px #3498db;
+        }
+
         .light.red {
             background: #e74c3c;
             box-shadow: 0 0 60px #e74c3c;
@@ -245,19 +260,46 @@
         let greenDuration = 0;
         let roundHistory = [];
         let tapTimes = []; // timestamps of taps during green
+        let colorCycleTimeout = null;
+        const goColors = ['green', 'yellow', 'orange', 'blue'];
 
         function resetLight() {
-            light.classList.remove('red', 'green');
+            light.classList.remove('red', 'green', 'yellow', 'orange', 'blue');
         }
 
-        function setGreen() {
-            light.classList.add('green');
-            light.classList.remove('red');
+        function setGoColor(color) {
+            light.classList.remove('red', 'green', 'yellow', 'orange', 'blue');
+            light.classList.add(color);
+        }
+
+        function getRandomGoColor() {
+            return goColors[Math.floor(Math.random() * goColors.length)];
+        }
+
+        function getRandomColorInterval() {
+            return 300 + Math.random() * 500; // 300-800ms
+        }
+
+        function startColorCycling() {
+            function cycleColor() {
+                if (state !== 'green') return;
+                setGoColor(getRandomGoColor());
+                colorCycleTimeout = setTimeout(cycleColor, getRandomColorInterval());
+            }
+            cycleColor();
+        }
+
+        function stopColorCycling() {
+            if (colorCycleTimeout) {
+                clearTimeout(colorCycleTimeout);
+                colorCycleTimeout = null;
+            }
         }
 
         function setRed() {
+            stopColorCycling();
+            light.classList.remove('green', 'yellow', 'orange', 'blue');
             light.classList.add('red');
-            light.classList.remove('green');
         }
 
         function getRandomGreenDuration() {
@@ -323,7 +365,7 @@
                 if (state !== 'countdown') return;
 
                 state = 'green';
-                setGreen();
+                startColorCycling();
                 status.textContent = 'GO! Tap SPACEBAR!';
                 stats.style.display = 'flex';
 
@@ -443,6 +485,7 @@
             } else if (state === 'countdown') {
                 // Tapped before green - false start
                 state = 'ended';
+                stopColorCycling();
                 resetLight();
                 result.textContent = 'False start! Wait for green.';
                 result.className = 'result fail';
