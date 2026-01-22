@@ -62,7 +62,7 @@
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 1rem;
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
         }
 
         .cell {
@@ -181,6 +181,7 @@
     </div>
     <div class="history" id="history"></div>
 
+    <script src="results-logger.js"></script>
     <script>
         const cells = [0, 1, 2, 3].map(i => ({
             cell: document.getElementById(`cell${i}`),
@@ -384,6 +385,7 @@
                 }
                 result.textContent = 'Too early!';
                 result.className = 'result slow';
+                logResult({ game: 'stop6', result: 'too_early', stopLetter: stopLetter, stopColor: stopColor });
             } else if (state === 'measuring') {
                 const endTime = performance.now();
                 const reactionTime = Math.round(endTime - startTime);
@@ -391,6 +393,7 @@
                 resetCells();
                 status.textContent = 'Hold SPACEBAR to try again';
                 showResult(reactionTime);
+                logResult({ game: 'stop6', result: 'success', reactionTime: reactionTime, stopLetter: stopLetter, stopColor: stopColor });
             }
         }
 

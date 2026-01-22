@@ -291,6 +291,7 @@
 
     <div class="history" id="history"></div>
 
+    <script src="results-logger.js"></script>
     <script>
         const light = document.getElementById('light');
         const lightLetter = document.getElementById('lightLetter');
@@ -443,6 +444,7 @@
             result.className = 'result fail';
             status.textContent = 'Press Start to try again';
             startBtn.disabled = false;
+            logResult({ game: 'gostop5', result: 'slow_start', stopLetter: stopLetter, stopColor: stopColor });
         }
 
         function failHesitation(splitTime) {
@@ -454,6 +456,7 @@
             result.className = 'result fail';
             status.textContent = 'Press Start to try again';
             startBtn.disabled = false;
+            logResult({ game: 'gostop5', result: 'hesitation', taps: tapCount, baselineSplit: Math.round(baselineSplit), stopLetter: stopLetter, stopColor: stopColor });
         }
 
         function updateHistory() {
@@ -556,6 +559,10 @@
             status.textContent = 'Press Start for next round';
             updateHistory();
             updateTimingBreakdown();
+
+            const avgSplit = tapTimes.length > 1 ? Math.round((tapTimes[tapTimes.length-1] - tapTimes[0]) / (tapTimes.length - 1)) : 0;
+            const finalStopTime = stopTimeEl.textContent === '0ms' ? 0 : parseInt(stopTimeEl.textContent);
+            logResult({ game: 'gostop5', result: 'success', reactionTime: finalStopTime, taps: tapCount, avgSplit: avgSplit, tapsAfterStop: tapsAfterStop, stopLetter: stopLetter, stopColor: stopColor, baselineSplit: baselineSplit ? Math.round(baselineSplit) : null });
         }
 
         function updateTimingBreakdown() {

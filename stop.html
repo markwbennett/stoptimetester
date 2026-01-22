@@ -115,6 +115,7 @@
     </div>
     <div class="history" id="history"></div>
 
+    <script src="results-logger.js"></script>
     <script>
         const light = document.getElementById('light');
         const status = document.getElementById('status');
@@ -205,6 +206,7 @@
                 status.textContent = 'Too early! Hold SPACEBAR to try again';
                 result.textContent = 'Too early!';
                 result.className = 'result slow';
+                logResult({ game: 'stop', result: 'too_early' });
             } else if (state === 'measuring') {
                 const endTime = performance.now();
                 const reactionTime = Math.round(endTime - startTime);
@@ -212,6 +214,7 @@
                 resetLight();
                 status.textContent = 'Hold SPACEBAR to try again';
                 showResult(reactionTime);
+                logResult({ game: 'stop', result: 'success', reactionTime: reactionTime });
             }
         }
 

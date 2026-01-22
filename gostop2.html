@@ -250,6 +250,7 @@
 
     <div class="history" id="history"></div>
 
+    <script src="results-logger.js"></script>
     <script>
         const light = document.getElementById('light');
         const status = document.getElementById('status');
@@ -347,6 +348,7 @@
             result.className = 'result fail';
             status.textContent = 'Press Start to try again';
             startBtn.disabled = false;
+            logResult({ game: 'gostop2', result: 'hesitation', taps: tapCount, baselineSplit: Math.round(baselineSplit) });
         }
 
         function failSlowStart() {
@@ -358,6 +360,7 @@
             result.className = 'result fail';
             status.textContent = 'Press Start to try again';
             startBtn.disabled = false;
+            logResult({ game: 'gostop2', result: 'slow_start' });
         }
 
         function updateHistory() {
@@ -446,8 +449,9 @@
 
             startBtn.disabled = false;
 
+            let stopTime = 0;
             if (lastTapAfterRed !== null) {
-                const stopTime = Math.round(lastTapAfterRed - redTime);
+                stopTime = Math.round(lastTapAfterRed - redTime);
                 result.textContent = `${tapCount} taps, stopped ${stopTime}ms after red`;
                 if (stopTime < 150) {
                     result.className = 'result success';
@@ -468,6 +472,9 @@
             status.textContent = 'Press Start for next round';
             updateHistory();
             updateTimingBreakdown();
+
+            const avgSplit = tapTimes.length > 1 ? Math.round((tapTimes[tapTimes.length-1] - tapTimes[0]) / (tapTimes.length - 1)) : 0;
+            logResult({ game: 'gostop2', result: 'success', reactionTime: stopTime, taps: tapCount, avgSplit: avgSplit, tapsAfterStop: tapsAfterRed, baselineSplit: baselineSplit ? Math.round(baselineSplit) : null });
         }
 
         function updateTimingBreakdown() {
