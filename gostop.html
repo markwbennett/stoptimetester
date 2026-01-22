@@ -158,6 +158,10 @@
             <div class="stat-label">Avg Split</div>
         </div>
         <div class="stat">
+            <div class="stat-value" id="tapsAfterRedEl">0</div>
+            <div class="stat-label">After Red</div>
+        </div>
+        <div class="stat">
             <div class="stat-value" id="stopTime">-</div>
             <div class="stat-label">Stop Time</div>
         </div>
@@ -181,6 +185,7 @@
         const startBtn = document.getElementById('startBtn');
         const tapCountEl = document.getElementById('tapCount');
         const splitTimeEl = document.getElementById('splitTime');
+        const tapsAfterRedEl = document.getElementById('tapsAfterRedEl');
         const stopTimeEl = document.getElementById('stopTime');
         const stats = document.getElementById('stats');
         const tapIndicator = document.getElementById('tapIndicator');
@@ -258,6 +263,7 @@
             result.className = 'result';
             tapCountEl.textContent = '0';
             splitTimeEl.textContent = '-';
+            tapsAfterRedEl.textContent = '0';
             stopTimeEl.textContent = '-';
             stats.style.display = 'none';
             startBtn.disabled = true;
@@ -345,6 +351,7 @@
             } else if (state === 'red') {
                 lastTapAfterRed = performance.now();
                 tapsAfterRed++;
+                tapsAfterRedEl.textContent = tapsAfterRed;
                 showTap();
             } else if (state === 'countdown') {
                 // Tapped before green - false start
