@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go/Stop Reaction Tester</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        h1 {
+            margin-bottom: 2rem;
+            font-weight: 300;
+        }
+
+        .light {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: #555;
+            box-shadow: 0 0 30px #333;
+            transition: background 0.05s, box-shadow 0.05s;
+            margin-bottom: 2rem;
+        }
+
+        .light.green {
+            background: #2ecc71;
+            box-shadow: 0 0 60px #2ecc71;
+        }
+
+        .light.red {
+            background: #e74c3c;
+            box-shadow: 0 0 60px #e74c3c;
+        }
+
+        .instructions {
+            font-size: 1.2rem;
+            text-align: center;
+            max-width: 500px;
+            line-height: 1.6;
+            color: #aaa;
+        }
+
+        .result {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 1rem 0;
+            min-height: 4rem;
+            text-align: center;
+        }
+
+        .result.success {
+            color: #2ecc71;
+        }
+
+        .result.fail {
+            color: #e74c3c;
+        }
+
+        .status {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            min-height: 2rem;
+        }
+
+        .stats {
+            display: flex;
+            gap: 3rem;
+            margin: 1rem 0;
+            font-size: 1.2rem;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .tap-indicator {
+            font-size: 1.5rem;
+            height: 2rem;
+            color: #f1c40f;
+        }
+
+        .history {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .history .success-mark {
+            color: #2ecc71;
+        }
+
+        .history .fail-mark {
+            color: #e74c3c;
+        }
+
+        .start-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 1rem 0;
+            transition: background 0.2s;
+        }
+
+        .start-btn:hover {
+            background: #2980b9;
+        }
+
+        .start-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>Go/Stop Reaction Tester</h1>
+    <div class="light" id="light"></div>
+    <div class="status" id="status">Press Start to begin</div>
+    <div class="tap-indicator" id="tapIndicator"></div>
+
+    <div class="stats" id="stats" style="display: none;">
+        <div class="stat">
+            <div class="stat-value" id="tapCount">0</div>
+            <div class="stat-label">Taps</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="stopTime">-</div>
+            <div class="stat-label">Stop Time</div>
+        </div>
+    </div>
+
+    <div class="result" id="result"></div>
+
+    <button class="start-btn" id="startBtn">Start Round</button>
+
+    <div class="instructions">
+        When the light turns GREEN, tap SPACEBAR as fast as you can.<br>
+        When it turns RED, stop immediately! Any tap after red = fail.
+    </div>
+
+    <div class="history" id="history"></div>
+
+    <script>
+        const light = document.getElementById('light');
+        const status = document.getElementById('status');
+        const result = document.getElementById('result');
+        const startBtn = document.getElementById('startBtn');
+        const tapCountEl = document.getElementById('tapCount');
+        const stopTimeEl = document.getElementById('stopTime');
+        const stats = document.getElementById('stats');
+        const tapIndicator = document.getElementById('tapIndicator');
+        const historyEl = document.getElementById('history');
+
+        let state = 'idle'; // idle, countdown, green, red, ended
+        let tapCount = 0;
+        let redTime = null;
+        let failTapTime = null;
+        let greenDuration = 0;
+        let roundHistory = [];
+
+        function resetLight() {
+            light.classList.remove('red', 'green');
+        }
+
+        function setGreen() {
+            light.classList.add('green');
+            light.classList.remove('red');
+        }
+
+        function setRed() {
+            light.classList.add('red');
+            light.classList.remove('green');
+        }
+
+        function getRandomGreenDuration() {
+            return 2000 + Math.random() * 4000; // 2 to 6 seconds of green
+        }
+
+        function getRandomStartDelay() {
+            return 1000 + Math.random() * 2000; // 1 to 3 seconds before green
+        }
+
+        function showTap() {
+            tapIndicator.textContent = 'TAP!';
+            setTimeout(() => {
+                tapIndicator.textContent = '';
+            }, 100);
+        }
+
+        function updateHistory() {
+            if (roundHistory.length === 0) {
+                historyEl.textContent = '';
+                return;
+            }
+            const marks = roundHistory.slice(-10).map(r =>
+                r.success
+                    ? `<span class="success-mark">${r.stopTime}ms</span>`
+                    : `<span class="fail-mark">FAIL</span>`
+            ).join(' | ');
+
+            const successCount = roundHistory.filter(r => r.success).length;
+            historyEl.innerHTML = `History: ${marks}<br>Success rate: ${successCount}/${roundHistory.length}`;
+        }
+
+        function startRound() {
+            state = 'countdown';
+            tapCount = 0;
+            redTime = null;
+            failTapTime = null;
+
+            resetLight();
+            result.textContent = '';
+            result.className = 'result';
+            tapCountEl.textContent = '0';
+            stopTimeEl.textContent = '-';
+            stats.style.display = 'none';
+            startBtn.disabled = true;
+            status.textContent = 'Get ready...';
+
+            const startDelay = getRandomStartDelay();
+
+            setTimeout(() => {
+                if (state !== 'countdown') return;
+
+                state = 'green';
+                setGreen();
+                status.textContent = 'GO! Tap SPACEBAR!';
+                stats.style.display = 'flex';
+
+                greenDuration = getRandomGreenDuration();
+
+                setTimeout(() => {
+                    if (state !== 'green') return;
+
+                    state = 'red';
+                    setRed();
+                    redTime = performance.now();
+                    status.textContent = 'STOP!';
+
+                    // Wait 1 second to see if they tap after red
+                    setTimeout(() => {
+                        endRound();
+                    }, 1000);
+
+                }, greenDuration);
+
+            }, startDelay);
+        }
+
+        function endRound() {
+            if (state === 'ended') return;
+            state = 'ended';
+
+            startBtn.disabled = false;
+
+            if (failTapTime !== null) {
+                const afterRedTime = Math.round(failTapTime - redTime);
+                result.textContent = `FAIL! Tapped ${afterRedTime}ms after red`;
+                result.className = 'result fail';
+                stopTimeEl.textContent = `+${afterRedTime}ms`;
+                roundHistory.push({ success: false, taps: tapCount });
+            } else {
+                result.textContent = `Success! ${tapCount} taps`;
+                result.className = 'result success';
+                stopTimeEl.textContent = 'Clean!';
+                roundHistory.push({ success: true, taps: tapCount, stopTime: 0 });
+            }
+
+            status.textContent = 'Press Start for next round';
+            updateHistory();
+        }
+
+        function handleKeyDown(e) {
+            if (e.code !== 'Space' || e.repeat) return;
+            e.preventDefault();
+
+            if (state === 'green') {
+                tapCount++;
+                tapCountEl.textContent = tapCount;
+                showTap();
+            } else if (state === 'red') {
+                if (failTapTime === null) {
+                    failTapTime = performance.now();
+                }
+                showTap();
+                endRound();
+            } else if (state === 'countdown') {
+                // Tapped before green - false start
+                state = 'ended';
+                resetLight();
+                result.textContent = 'False start! Wait for green.';
+                result.className = 'result fail';
+                status.textContent = 'Press Start to try again';
+                startBtn.disabled = false;
+            }
+        }
+
+        startBtn.addEventListener('click', startRound);
+        document.addEventListener('keydown', handleKeyDown);
+
+        // Prevent spacebar from scrolling
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>
