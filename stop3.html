@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stop 3 - Shape Matching</title>
+    <style>
+        .back-link {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        h1 {
+            margin-bottom: 1rem;
+            font-weight: 300;
+        }
+
+        .target-display {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem 1rem;
+            background: rgba(231, 76, 60, 0.3);
+            border: 2px solid #e74c3c;
+            border-radius: 8px;
+        }
+
+        .target-display .target-shape {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+
+        .light {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: #555;
+            box-shadow: 0 0 30px #333;
+            transition: background 0.05s, box-shadow 0.05s;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .light-shape {
+            font-size: 5rem;
+            font-weight: bold;
+            color: rgba(0, 0, 0, 0.5);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .light.green {
+            background: #2ecc71;
+            box-shadow: 0 0 60px #2ecc71;
+        }
+
+        .light.yellow {
+            background: #f1c40f;
+            box-shadow: 0 0 60px #f1c40f;
+        }
+
+        .light.orange {
+            background: #e67e22;
+            box-shadow: 0 0 60px #e67e22;
+        }
+
+        .light.blue {
+            background: #3498db;
+            box-shadow: 0 0 60px #3498db;
+        }
+
+        .light.purple {
+            background: #9b59b6;
+            box-shadow: 0 0 60px #9b59b6;
+        }
+
+        .light.red {
+            background: #e74c3c;
+            box-shadow: 0 0 60px #e74c3c;
+        }
+
+        .instructions {
+            font-size: 1.1rem;
+            text-align: center;
+            max-width: 450px;
+            line-height: 1.6;
+            color: #aaa;
+        }
+
+        .result {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 1rem 0;
+            min-height: 4rem;
+        }
+
+        .result.good {
+            color: #2ecc71;
+        }
+
+        .result.ok {
+            color: #f1c40f;
+        }
+
+        .result.slow {
+            color: #e74c3c;
+        }
+
+        .status {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            min-height: 2rem;
+        }
+
+        .history {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .history span {
+            margin: 0 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">&larr; Back to Menu</a>
+    <h1>Stop 3 - Shape Matching</h1>
+
+    <div class="target-display" id="targetDisplay">
+        Release on: <span class="target-shape" id="targetShape">●</span> in RED
+    </div>
+
+    <div class="light" id="light">
+        <span class="light-shape" id="lightShape"></span>
+    </div>
+    <div class="status" id="status">Hold SPACEBAR to start</div>
+    <div class="result" id="result"></div>
+    <div class="instructions">
+        Hold the spacebar. Colors and shapes change independently.<br>
+        Release ONLY when you see the target shape in RED!
+    </div>
+    <div class="history" id="history"></div>
+
+    <script>
+        const light = document.getElementById('light');
+        const lightShape = document.getElementById('lightShape');
+        const targetShapeEl = document.getElementById('targetShape');
+        const status = document.getElementById('status');
+        const result = document.getElementById('result');
+        const history = document.getElementById('history');
+
+        let state = 'waiting'; // waiting, holding, measuring
+        let colorCycleTimeout = null;
+        let shapeCycleTimeout = null;
+        let startTime = null;
+        let results = [];
+        let currentColor = null;
+        let currentShape = null;
+        let stopShape = null;
+
+        const allColors = ['green', 'yellow', 'orange', 'blue', 'purple', 'red'];
+        const shapes = [
+            { symbol: '▲', name: 'triangle' },
+            { symbol: '■', name: 'square' },
+            { symbol: '●', name: 'circle' },
+            { symbol: '★', name: 'star' }
+        ];
+
+        function resetLight() {
+            light.classList.remove('red', 'green', 'yellow', 'orange', 'blue', 'purple');
+            lightShape.textContent = '';
+        }
+
+        function setColor(color) {
+            light.classList.remove('red', 'green', 'yellow', 'orange', 'blue', 'purple');
+            light.classList.add(color);
+            currentColor = color;
+            checkStopSignal();
+        }
+
+        function setShape(shape) {
+            lightShape.textContent = shape.symbol;
+            currentShape = shape;
+            checkStopSignal();
+        }
+
+        function checkStopSignal() {
+            if (state === 'holding' && currentColor === 'red' && currentShape && currentShape.name === stopShape.name) {
+                state = 'measuring';
+                stopColorCycling();
+                status.textContent = 'RELEASE NOW!';
+                startTime = performance.now();
+            }
+        }
+
+        function getRandomColor() {
+            return allColors[Math.floor(Math.random() * allColors.length)];
+        }
+
+        function getRandomShape() {
+            return shapes[Math.floor(Math.random() * shapes.length)];
+        }
+
+        function getRandomColorInterval() {
+            return 300 + Math.random() * 500; // 300-800ms
+        }
+
+        function getRandomShapeInterval() {
+            return 400 + Math.random() * 600; // 400-1000ms
+        }
+
+        function startColorCycling() {
+            function cycleColor() {
+                if (state !== 'holding') return;
+                setColor(getRandomColor());
+                colorCycleTimeout = setTimeout(cycleColor, getRandomColorInterval());
+            }
+
+            function cycleShape() {
+                if (state !== 'holding') return;
+                setShape(getRandomShape());
+                shapeCycleTimeout = setTimeout(cycleShape, getRandomShapeInterval());
+            }
+
+            // Start with a non-stop combo
+            let firstColor, firstShape;
+            do {
+                firstColor = getRandomColor();
+                firstShape = getRandomShape();
+            } while (firstColor === 'red' && firstShape.name === stopShape.name);
+
+            setColor(firstColor);
+            setShape(firstShape);
+
+            colorCycleTimeout = setTimeout(cycleColor, getRandomColorInterval());
+            shapeCycleTimeout = setTimeout(cycleShape, getRandomShapeInterval());
+        }
+
+        function stopColorCycling() {
+            if (colorCycleTimeout) {
+                clearTimeout(colorCycleTimeout);
+                colorCycleTimeout = null;
+            }
+            if (shapeCycleTimeout) {
+                clearTimeout(shapeCycleTimeout);
+                shapeCycleTimeout = null;
+            }
+        }
+
+        function updateHistory() {
+            if (results.length === 0) {
+                history.textContent = '';
+                return;
+            }
+            const last5 = results.slice(-5);
+            const avg = Math.round(last5.reduce((a, b) => a + b, 0) / last5.length);
+            history.innerHTML = `Last ${last5.length}: ${last5.map(r => `<span>${r}ms</span>`).join('')} | Avg: ${avg}ms`;
+        }
+
+        function showResult(time) {
+            results.push(time);
+            result.textContent = `${time} ms`;
+            result.className = 'result';
+
+            if (time < 200) {
+                result.classList.add('good');
+            } else if (time < 350) {
+                result.classList.add('ok');
+            } else {
+                result.classList.add('slow');
+            }
+
+            updateHistory();
+        }
+
+        function handleKeyDown(e) {
+            if (e.code !== 'Space' || e.repeat) return;
+            e.preventDefault();
+
+            if (state === 'waiting') {
+                state = 'holding';
+
+                // Pick a random stop shape for this round
+                stopShape = getRandomShape();
+                targetShapeEl.textContent = stopShape.symbol;
+
+                startColorCycling();
+                status.textContent = `Wait for ${stopShape.symbol} in RED...`;
+                result.textContent = '';
+                result.className = 'result';
+            }
+        }
+
+        function handleKeyUp(e) {
+            if (e.code !== 'Space') return;
+            e.preventDefault();
+
+            if (state === 'holding') {
+                // Released too early
+                stopColorCycling();
+                state = 'waiting';
+                resetLight();
+                if (currentColor === 'red') {
+                    status.textContent = `Wrong shape! That was ${currentShape.name}, not ${stopShape.name}. Hold SPACEBAR`;
+                } else if (currentShape && currentShape.name === stopShape.name) {
+                    status.textContent = `Wrong color! Wait for RED. Hold SPACEBAR`;
+                } else {
+                    status.textContent = 'Too early! Wait for the right combo. Hold SPACEBAR';
+                }
+                result.textContent = 'Too early!';
+                result.className = 'result slow';
+            } else if (state === 'measuring') {
+                const endTime = performance.now();
+                const reactionTime = Math.round(endTime - startTime);
+                state = 'waiting';
+                resetLight();
+                status.textContent = 'Hold SPACEBAR to try again';
+                showResult(reactionTime);
+            }
+        }
+
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+
+        // Prevent spacebar from scrolling
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>

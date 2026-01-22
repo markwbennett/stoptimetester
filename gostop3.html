@@ -278,8 +278,8 @@
     <button class="start-btn" id="startBtn">Start Round</button>
 
     <div class="instructions">
-        Tap SPACEBAR while the light shows colors and shapes.<br>
-        STOP only when you see the target shape in a RED circle!<br>
+        Tap SPACEBAR while colors and shapes change independently.<br>
+        STOP only when you see the target shape in RED! Don't hesitate!<br>
         Red + wrong shape = keep tapping. Right shape + wrong color = keep tapping.
     </div>
 
@@ -313,10 +313,12 @@
         let roundHistory = [];
         let tapTimes = [];
         let colorCycleTimeout = null;
+        let shapeCycleTimeout = null;
         let currentColor = null;
         let currentShape = null;
         let stopShape = null; // the shape that triggers stop when red
         let isStopSignal = false;
+        let baselineSplit = null;
 
         const allColors = ['green', 'yellow', 'orange', 'blue', 'red'];
         const shapes = [
@@ -332,15 +334,33 @@
             lightLetter.textContent = '';
         }
 
-        function setColorAndShape(color, shape) {
+        function setColor(color) {
             light.classList.remove('red', 'green', 'yellow', 'orange', 'blue');
             light.classList.add(color);
-            lightLetter.textContent = shape.symbol;
             currentColor = color;
-            currentShape = shape;
+            checkStopSignal();
+        }
 
-            // Check if this is the stop signal
-            isStopSignal = (color === 'red' && shape.name === stopShape.name);
+        function setShape(shape) {
+            lightLetter.textContent = shape.symbol;
+            currentShape = shape;
+            checkStopSignal();
+        }
+
+        function checkStopSignal() {
+            if (currentColor === 'red' && currentShape && currentShape.name === stopShape.name) {
+                if (!isStopSignal && state === 'go') {
+                    isStopSignal = true;
+                    state = 'stopped';
+                    stopSignalTime = performance.now();
+                    stopColorCycling();
+
+                    // Wait 1.5 seconds to collect taps after stop signal
+                    setTimeout(() => {
+                        endRound();
+                    }, 1500);
+                }
+            }
         }
 
         function getRandomColor() {
@@ -352,30 +372,24 @@
         }
 
         function getRandomColorInterval() {
-            return 400 + Math.random() * 600; // 400-1000ms
+            return 300 + Math.random() * 500; // 300-800ms
+        }
+
+        function getRandomShapeInterval() {
+            return 400 + Math.random() * 600; // 400-1000ms (slightly different timing)
         }
 
         function startColorCycling() {
-            function cycleColorAndShape() {
+            function cycleColor() {
                 if (state !== 'go') return;
+                setColor(getRandomColor());
+                colorCycleTimeout = setTimeout(cycleColor, getRandomColorInterval());
+            }
 
-                const newColor = getRandomColor();
-                const newShape = getRandomShape();
-                setColorAndShape(newColor, newShape);
-
-                // If this is the stop signal, trigger stop mode
-                if (isStopSignal) {
-                    state = 'stopped';
-                    stopSignalTime = performance.now();
-
-                    // Wait 1.5 seconds to collect taps after stop signal
-                    setTimeout(() => {
-                        endRound();
-                    }, 1500);
-                    return;
-                }
-
-                colorCycleTimeout = setTimeout(cycleColorAndShape, getRandomColorInterval());
+            function cycleShape() {
+                if (state !== 'go') return;
+                setShape(getRandomShape());
+                shapeCycleTimeout = setTimeout(cycleShape, getRandomShapeInterval());
             }
 
             // Start with a non-stop color/shape combo
@@ -385,14 +399,22 @@
                 firstShape = getRandomShape();
             } while (firstColor === 'red' && firstShape.name === stopShape.name);
 
-            setColorAndShape(firstColor, firstShape);
-            colorCycleTimeout = setTimeout(cycleColorAndShape, getRandomColorInterval());
+            setColor(firstColor);
+            setShape(firstShape);
+
+            // Start independent cycling
+            colorCycleTimeout = setTimeout(cycleColor, getRandomColorInterval());
+            shapeCycleTimeout = setTimeout(cycleShape, getRandomShapeInterval());
         }
 
         function stopColorCycling() {
             if (colorCycleTimeout) {
                 clearTimeout(colorCycleTimeout);
                 colorCycleTimeout = null;
+            }
+            if (shapeCycleTimeout) {
+                clearTimeout(shapeCycleTimeout);
+                shapeCycleTimeout = null;
             }
         }
 
@@ -414,6 +436,17 @@
             light.classList.remove('green', 'yellow', 'orange', 'blue');
             light.classList.add('red');
             result.textContent = 'Too slow to start! Must tap within 300ms';
+            result.className = 'result fail';
+            status.textContent = 'Press Start to try again';
+            startBtn.disabled = false;
+        }
+
+        function failHesitation(splitTime) {
+            state = 'ended';
+            stopColorCycling();
+            light.classList.remove('green', 'yellow', 'orange', 'blue');
+            light.classList.add('red');
+            result.textContent = `Hesitated! ${Math.round(splitTime)}ms (max ${Math.round(baselineSplit * 2)}ms)`;
             result.className = 'result fail';
             status.textContent = 'Press Start to try again';
             startBtn.disabled = false;
@@ -459,6 +492,7 @@
             tapsAfterStop = 0;
             tapTimes = [];
             isStopSignal = false;
+            baselineSplit = null;
 
             // Pick a random stop shape for this round
             stopShape = getRandomShape();
@@ -562,11 +596,30 @@
                     clearTimeout(slowStartTimeout);
                 }
 
-                tapTimes.push(performance.now());
+                const now = performance.now();
+                tapTimes.push(now);
                 tapCount++;
                 tapCountEl.textContent = tapCount;
 
                 if (tapTimes.length >= 2) {
+                    const lastSplit = tapTimes[tapTimes.length - 1] - tapTimes[tapTimes.length - 2];
+
+                    // After 3 taps, establish baseline from first 2 splits
+                    if (tapTimes.length === 3) {
+                        const split1 = tapTimes[1] - tapTimes[0];
+                        const split2 = tapTimes[2] - tapTimes[1];
+                        baselineSplit = (split1 + split2) / 2;
+                    }
+
+                    // After baseline established, check for hesitation
+                    if (baselineSplit !== null && tapTimes.length > 3) {
+                        if (lastSplit > baselineSplit * 2) {
+                            failHesitation(lastSplit);
+                            return;
+                        }
+                    }
+
+                    // Calculate and display average split time
                     let totalSplit = 0;
                     for (let i = 1; i < tapTimes.length; i++) {
                         totalSplit += tapTimes[i] - tapTimes[i - 1];
