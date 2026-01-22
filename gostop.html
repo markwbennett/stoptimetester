@@ -120,6 +120,48 @@
             color: #e74c3c;
         }
 
+        .timing-breakdown {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.95rem;
+            min-height: 3rem;
+        }
+
+        .timing-breakdown .event {
+            display: inline-block;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            margin: 0.2rem;
+        }
+
+        .timing-breakdown .good {
+            background: #2ecc71;
+            color: #000;
+        }
+
+        .timing-breakdown .red-event {
+            background: #e74c3c;
+            color: #fff;
+        }
+
+        .timing-breakdown .bad {
+            background: #e67e22;
+            color: #fff;
+        }
+
+        .timing-breakdown .arrow {
+            color: #888;
+            margin: 0 0.3rem;
+        }
+
+        .timing-breakdown .interval {
+            color: #f1c40f;
+            font-weight: bold;
+        }
+
         .start-btn {
             background: #3498db;
             color: white;
@@ -169,6 +211,8 @@
 
     <div class="result" id="result"></div>
 
+    <div class="timing-breakdown" id="timingBreakdown"></div>
+
     <button class="start-btn" id="startBtn">Start Round</button>
 
     <div class="instructions">
@@ -190,10 +234,12 @@
         const stats = document.getElementById('stats');
         const tapIndicator = document.getElementById('tapIndicator');
         const historyEl = document.getElementById('history');
+        const timingBreakdown = document.getElementById('timingBreakdown');
 
         let state = 'idle'; // idle, countdown, green, red, ended
         let tapCount = 0;
         let redTime = null;
+        let firstTapAfterRed = null;
         let lastTapAfterRed = null;
         let tapsAfterRed = 0;
         let greenDuration = 0;
@@ -254,6 +300,7 @@
             state = 'countdown';
             tapCount = 0;
             redTime = null;
+            firstTapAfterRed = null;
             lastTapAfterRed = null;
             tapsAfterRed = 0;
             tapTimes = [];
@@ -261,6 +308,7 @@
             resetLight();
             result.textContent = '';
             result.className = 'result';
+            timingBreakdown.innerHTML = '';
             tapCountEl.textContent = '0';
             splitTimeEl.textContent = '-';
             tapsAfterRedEl.textContent = '0';
@@ -326,6 +374,41 @@
 
             status.textContent = 'Press Start for next round';
             updateHistory();
+            updateTimingBreakdown();
+        }
+
+        function updateTimingBreakdown() {
+            const lastGoodTap = tapTimes.length > 0 ? tapTimes[tapTimes.length - 1] : null;
+
+            let html = '';
+
+            if (lastGoodTap !== null && redTime !== null) {
+                const lastGoodToRed = Math.round(redTime - lastGoodTap);
+                html += `<span class="event good">Last Good Tap</span>`;
+                html += `<span class="arrow">→</span><span class="interval">${lastGoodToRed}ms</span><span class="arrow">→</span>`;
+                html += `<span class="event red-event">RED</span>`;
+
+                if (firstTapAfterRed !== null) {
+                    const redToFirstBad = Math.round(firstTapAfterRed - redTime);
+                    html += `<span class="arrow">→</span><span class="interval">${redToFirstBad}ms</span><span class="arrow">→</span>`;
+                    html += `<span class="event bad">First Bad Tap</span>`;
+
+                    if (tapsAfterRed > 1 && lastTapAfterRed !== firstTapAfterRed) {
+                        const firstBadToLast = Math.round(lastTapAfterRed - firstTapAfterRed);
+                        html += `<span class="arrow">→</span><span class="interval">${firstBadToLast}ms</span><span class="arrow">→</span>`;
+                        html += `<span class="event bad">Last Tap</span>`;
+                    }
+                }
+            } else if (redTime !== null && tapTimes.length === 0) {
+                html += `<span class="event red-event">RED</span>`;
+                if (firstTapAfterRed !== null) {
+                    const redToFirstBad = Math.round(firstTapAfterRed - redTime);
+                    html += `<span class="arrow">→</span><span class="interval">${redToFirstBad}ms</span><span class="arrow">→</span>`;
+                    html += `<span class="event bad">First Bad Tap</span>`;
+                }
+            }
+
+            timingBreakdown.innerHTML = html;
         }
 
         function handleKeyDown(e) {
@@ -349,7 +432,11 @@
 
                 showTap();
             } else if (state === 'red') {
-                lastTapAfterRed = performance.now();
+                const now = performance.now();
+                if (firstTapAfterRed === null) {
+                    firstTapAfterRed = now;
+                }
+                lastTapAfterRed = now;
                 tapsAfterRed++;
                 tapsAfterRedEl.textContent = tapsAfterRed;
                 showTap();
