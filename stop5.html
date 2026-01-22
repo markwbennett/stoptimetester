@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stop 5 - Random Color</title>
+    <style>
+        .back-link {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        h1 {
+            margin-bottom: 1rem;
+            font-weight: 300;
+        }
+
+        .target-display {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem 1rem;
+            border: 2px solid;
+            border-radius: 8px;
+        }
+
+        .target-display .target-letter {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+
+        .target-display .target-color {
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .light {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: #555;
+            box-shadow: 0 0 30px #333;
+            transition: background 0.05s, box-shadow 0.05s;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .light-letter {
+            font-size: 5rem;
+            font-weight: bold;
+            color: rgba(0, 0, 0, 0.5);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .light.green {
+            background: #2ecc71;
+            box-shadow: 0 0 60px #2ecc71;
+        }
+
+        .light.yellow {
+            background: #f1c40f;
+            box-shadow: 0 0 60px #f1c40f;
+        }
+
+        .light.orange {
+            background: #e67e22;
+            box-shadow: 0 0 60px #e67e22;
+        }
+
+        .light.blue {
+            background: #3498db;
+            box-shadow: 0 0 60px #3498db;
+        }
+
+        .light.purple {
+            background: #9b59b6;
+            box-shadow: 0 0 60px #9b59b6;
+        }
+
+        .light.red {
+            background: #e74c3c;
+            box-shadow: 0 0 60px #e74c3c;
+        }
+
+        .instructions {
+            font-size: 1.1rem;
+            text-align: center;
+            max-width: 450px;
+            line-height: 1.6;
+            color: #aaa;
+        }
+
+        .result {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 1rem 0;
+            min-height: 4rem;
+        }
+
+        .result.good {
+            color: #2ecc71;
+        }
+
+        .result.ok {
+            color: #f1c40f;
+        }
+
+        .result.slow {
+            color: #e74c3c;
+        }
+
+        .status {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            min-height: 2rem;
+        }
+
+        .history {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .history span {
+            margin: 0 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">&larr; Back to Menu</a>
+    <h1>Stop 5 - Random Color</h1>
+
+    <div class="target-display" id="targetDisplay">
+        Release on: <span class="target-letter" id="targetLetter">X</span> in <span class="target-color" id="targetColor">RED</span>
+    </div>
+
+    <div class="light" id="light">
+        <span class="light-letter" id="lightLetter"></span>
+    </div>
+    <div class="status" id="status">Hold SPACEBAR to start</div>
+    <div class="result" id="result"></div>
+    <div class="instructions">
+        Hold the spacebar. Color and letter change together.<br>
+        Release ONLY when you see the target letter in the target color!
+    </div>
+    <div class="history" id="history"></div>
+
+    <script>
+        const light = document.getElementById('light');
+        const lightLetter = document.getElementById('lightLetter');
+        const targetLetterEl = document.getElementById('targetLetter');
+        const targetColorEl = document.getElementById('targetColor');
+        const targetDisplay = document.getElementById('targetDisplay');
+        const status = document.getElementById('status');
+        const result = document.getElementById('result');
+        const history = document.getElementById('history');
+
+        let state = 'waiting';
+        let cycleTimeout = null;
+        let startTime = null;
+        let results = [];
+        let currentColor = null;
+        let currentLetter = null;
+        let stopLetter = null;
+        let stopColor = null;
+
+        const allColors = ['green', 'yellow', 'orange', 'blue', 'purple', 'red'];
+        const colorHex = {
+            green: '#2ecc71',
+            yellow: '#f1c40f',
+            orange: '#e67e22',
+            blue: '#3498db',
+            purple: '#9b59b6',
+            red: '#e74c3c'
+        };
+        const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'K', 'M', 'N', 'P', 'R', 'S', 'T', 'X'];
+
+        function resetLight() {
+            light.classList.remove('red', 'green', 'yellow', 'orange', 'blue', 'purple');
+            lightLetter.textContent = '';
+        }
+
+        function setColorAndLetter(color, letter) {
+            light.classList.remove('red', 'green', 'yellow', 'orange', 'blue', 'purple');
+            light.classList.add(color);
+            lightLetter.textContent = letter;
+            currentColor = color;
+            currentLetter = letter;
+
+            // Check if this is the stop signal
+            if (state === 'holding' && color === stopColor && letter === stopLetter) {
+                state = 'measuring';
+                stopColorCycling();
+                status.textContent = 'RELEASE NOW!';
+                startTime = performance.now();
+            }
+        }
+
+        function getRandomColor() {
+            return allColors[Math.floor(Math.random() * allColors.length)];
+        }
+
+        function getRandomLetter() {
+            return letters[Math.floor(Math.random() * letters.length)];
+        }
+
+        function getRandomInterval() {
+            return 300 + Math.random() * 500;
+        }
+
+        function startColorCycling() {
+            function cycle() {
+                if (state !== 'holding') return;
+                setColorAndLetter(getRandomColor(), getRandomLetter());
+                cycleTimeout = setTimeout(cycle, getRandomInterval());
+            }
+
+            // Start with a non-stop combo
+            let firstColor, firstLetter;
+            do {
+                firstColor = getRandomColor();
+                firstLetter = getRandomLetter();
+            } while (firstColor === stopColor && firstLetter === stopLetter);
+
+            setColorAndLetter(firstColor, firstLetter);
+            cycleTimeout = setTimeout(cycle, getRandomInterval());
+        }
+
+        function stopColorCycling() {
+            if (cycleTimeout) {
+                clearTimeout(cycleTimeout);
+                cycleTimeout = null;
+            }
+        }
+
+        function updateHistory() {
+            if (results.length === 0) {
+                history.textContent = '';
+                return;
+            }
+            const last5 = results.slice(-5);
+            const avg = Math.round(last5.reduce((a, b) => a + b, 0) / last5.length);
+            history.innerHTML = `Last ${last5.length}: ${last5.map(r => `<span>${r}ms</span>`).join('')} | Avg: ${avg}ms`;
+        }
+
+        function showResult(time) {
+            results.push(time);
+            result.textContent = `${time} ms`;
+            result.className = 'result';
+
+            if (time < 200) {
+                result.classList.add('good');
+            } else if (time < 350) {
+                result.classList.add('ok');
+            } else {
+                result.classList.add('slow');
+            }
+
+            updateHistory();
+        }
+
+        function handleKeyDown(e) {
+            if (e.code !== 'Space' || e.repeat) return;
+            e.preventDefault();
+
+            if (state === 'waiting') {
+                state = 'holding';
+
+                // Pick random stop letter AND color
+                stopLetter = getRandomLetter();
+                stopColor = getRandomColor();
+                targetLetterEl.textContent = stopLetter;
+                targetColorEl.textContent = stopColor.toUpperCase();
+                targetColorEl.style.color = colorHex[stopColor];
+                targetDisplay.style.borderColor = colorHex[stopColor];
+                targetDisplay.style.background = `${colorHex[stopColor]}33`;
+
+                startColorCycling();
+                status.textContent = `Wait for ${stopLetter} in ${stopColor.toUpperCase()}...`;
+                result.textContent = '';
+                result.className = 'result';
+            }
+        }
+
+        function handleKeyUp(e) {
+            if (e.code !== 'Space') return;
+            e.preventDefault();
+
+            if (state === 'holding') {
+                stopColorCycling();
+                state = 'waiting';
+                resetLight();
+                if (currentColor === stopColor && currentLetter !== stopLetter) {
+                    status.textContent = `Wrong letter! That was ${currentLetter}, not ${stopLetter}. Hold SPACEBAR`;
+                } else if (currentLetter === stopLetter && currentColor !== stopColor) {
+                    status.textContent = `Wrong color! That was ${currentColor}, not ${stopColor}. Hold SPACEBAR`;
+                } else {
+                    status.textContent = 'Too early! Wait for the right combo. Hold SPACEBAR';
+                }
+                result.textContent = 'Too early!';
+                result.className = 'result slow';
+            } else if (state === 'measuring') {
+                const endTime = performance.now();
+                const reactionTime = Math.round(endTime - startTime);
+                state = 'waiting';
+                resetLight();
+                status.textContent = 'Hold SPACEBAR to try again';
+                showResult(reactionTime);
+            }
+        }
+
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>
