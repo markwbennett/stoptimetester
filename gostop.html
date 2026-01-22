@@ -165,7 +165,7 @@
 
     <div class="instructions">
         When the light turns GREEN, tap SPACEBAR as fast as you can.<br>
-        When it turns RED, stop immediately! Any tap after red = fail.
+        When it turns RED, stop as quickly as possible! Your stop time is measured.
     </div>
 
     <div class="history" id="history"></div>
@@ -184,7 +184,8 @@
         let state = 'idle'; // idle, countdown, green, red, ended
         let tapCount = 0;
         let redTime = null;
-        let failTapTime = null;
+        let lastTapAfterRed = null;
+        let tapsAfterRed = 0;
         let greenDuration = 0;
         let roundHistory = [];
 
@@ -222,21 +223,28 @@
                 historyEl.textContent = '';
                 return;
             }
-            const marks = roundHistory.slice(-10).map(r =>
-                r.success
-                    ? `<span class="success-mark">${r.stopTime}ms</span>`
-                    : `<span class="fail-mark">FAIL</span>`
-            ).join(' | ');
+            const marks = roundHistory.slice(-10).map(r => {
+                if (r.stopTime === 0) {
+                    return `<span class="success-mark">0ms</span>`;
+                } else if (r.stopTime < 150) {
+                    return `<span class="success-mark">${r.stopTime}ms</span>`;
+                } else if (r.stopTime < 300) {
+                    return `<span>${r.stopTime}ms</span>`;
+                } else {
+                    return `<span class="fail-mark">${r.stopTime}ms</span>`;
+                }
+            }).join(' | ');
 
-            const successCount = roundHistory.filter(r => r.success).length;
-            historyEl.innerHTML = `History: ${marks}<br>Success rate: ${successCount}/${roundHistory.length}`;
+            const avgStopTime = Math.round(roundHistory.reduce((a, r) => a + r.stopTime, 0) / roundHistory.length);
+            historyEl.innerHTML = `Stop times: ${marks}<br>Average: ${avgStopTime}ms`;
         }
 
         function startRound() {
             state = 'countdown';
             tapCount = 0;
             redTime = null;
-            failTapTime = null;
+            lastTapAfterRed = null;
+            tapsAfterRed = 0;
 
             resetLight();
             result.textContent = '';
@@ -283,16 +291,22 @@
 
             startBtn.disabled = false;
 
-            if (failTapTime !== null) {
-                const afterRedTime = Math.round(failTapTime - redTime);
-                result.textContent = `FAIL! Tapped ${afterRedTime}ms after red`;
-                result.className = 'result fail';
-                stopTimeEl.textContent = `+${afterRedTime}ms`;
-                roundHistory.push({ success: false, taps: tapCount });
+            if (lastTapAfterRed !== null) {
+                const stopTime = Math.round(lastTapAfterRed - redTime);
+                result.textContent = `${tapCount} taps, stopped ${stopTime}ms after red`;
+                if (stopTime < 150) {
+                    result.className = 'result success';
+                } else if (stopTime < 300) {
+                    result.className = 'result';
+                } else {
+                    result.className = 'result fail';
+                }
+                stopTimeEl.textContent = `${stopTime}ms`;
+                roundHistory.push({ success: true, taps: tapCount, stopTime: stopTime });
             } else {
-                result.textContent = `Success! ${tapCount} taps`;
+                result.textContent = `Perfect! ${tapCount} taps, instant stop`;
                 result.className = 'result success';
-                stopTimeEl.textContent = 'Clean!';
+                stopTimeEl.textContent = '0ms';
                 roundHistory.push({ success: true, taps: tapCount, stopTime: 0 });
             }
 
@@ -309,11 +323,9 @@
                 tapCountEl.textContent = tapCount;
                 showTap();
             } else if (state === 'red') {
-                if (failTapTime === null) {
-                    failTapTime = performance.now();
-                }
+                lastTapAfterRed = performance.now();
+                tapsAfterRed++;
                 showTap();
-                endRound();
             } else if (state === 'countdown') {
                 // Tapped before green - false start
                 state = 'ended';
