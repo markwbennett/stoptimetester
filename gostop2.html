@@ -3,8 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Go/Stop - Basic</title>
+    <title>Go/Stop 2 - Advanced</title>
     <style>
+        .back-link {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -28,18 +40,6 @@
             font-weight: 300;
         }
 
-        .back-link {
-            position: absolute;
-            top: 1rem;
-            left: 1rem;
-            color: #3498db;
-            text-decoration: none;
-        }
-
-        .back-link:hover {
-            text-decoration: underline;
-        }
-
         .light {
             width: 200px;
             height: 200px;
@@ -53,6 +53,21 @@
         .light.green {
             background: #2ecc71;
             box-shadow: 0 0 60px #2ecc71;
+        }
+
+        .light.yellow {
+            background: #f1c40f;
+            box-shadow: 0 0 60px #f1c40f;
+        }
+
+        .light.orange {
+            background: #e67e22;
+            box-shadow: 0 0 60px #e67e22;
+        }
+
+        .light.blue {
+            background: #3498db;
+            box-shadow: 0 0 60px #3498db;
         }
 
         .light.red {
@@ -132,6 +147,48 @@
             color: #e74c3c;
         }
 
+        .timing-breakdown {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.95rem;
+            min-height: 3rem;
+        }
+
+        .timing-breakdown .event {
+            display: inline-block;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            margin: 0.2rem;
+        }
+
+        .timing-breakdown .good {
+            background: #2ecc71;
+            color: #000;
+        }
+
+        .timing-breakdown .red-event {
+            background: #e74c3c;
+            color: #fff;
+        }
+
+        .timing-breakdown .bad {
+            background: #e67e22;
+            color: #fff;
+        }
+
+        .timing-breakdown .arrow {
+            color: #888;
+            margin: 0 0.3rem;
+        }
+
+        .timing-breakdown .interval {
+            color: #f1c40f;
+            font-weight: bold;
+        }
+
         .start-btn {
             background: #3498db;
             color: white;
@@ -156,7 +213,7 @@
 </head>
 <body>
     <a href="index.html" class="back-link">&larr; Back to Menu</a>
-    <h1>Go/Stop - Basic</h1>
+    <h1>Go/Stop 2 - Advanced</h1>
     <div class="light" id="light"></div>
     <div class="status" id="status">Press Start to begin</div>
     <div class="tap-indicator" id="tapIndicator"></div>
@@ -182,6 +239,8 @@
 
     <div class="result" id="result"></div>
 
+    <div class="timing-breakdown" id="timingBreakdown"></div>
+
     <button class="start-btn" id="startBtn">Start Round</button>
 
     <div class="instructions">
@@ -203,8 +262,9 @@
         const stats = document.getElementById('stats');
         const tapIndicator = document.getElementById('tapIndicator');
         const historyEl = document.getElementById('history');
+        const timingBreakdown = document.getElementById('timingBreakdown');
 
-        let state = 'idle';
+        let state = 'idle'; // idle, countdown, green, red, ended
         let tapCount = 0;
         let redTime = null;
         let firstTapAfterRed = null;
@@ -212,28 +272,58 @@
         let tapsAfterRed = 0;
         let greenDuration = 0;
         let roundHistory = [];
-        let tapTimes = [];
+        let tapTimes = []; // timestamps of taps during green
+        let baselineSplit = null; // average split from first 3 taps
+        let hesitated = false;
+        let hesitationSplit = null;
+        let colorCycleTimeout = null;
+        const goColors = ['green', 'yellow', 'orange', 'blue'];
 
         function resetLight() {
-            light.classList.remove('red', 'green');
+            light.classList.remove('red', 'green', 'yellow', 'orange', 'blue');
         }
 
-        function setGreen() {
-            light.classList.add('green');
-            light.classList.remove('red');
+        function setGoColor(color) {
+            light.classList.remove('red', 'green', 'yellow', 'orange', 'blue');
+            light.classList.add(color);
+        }
+
+        function getRandomGoColor() {
+            return goColors[Math.floor(Math.random() * goColors.length)];
+        }
+
+        function getRandomColorInterval() {
+            return 300 + Math.random() * 500; // 300-800ms
+        }
+
+        function startColorCycling() {
+            function cycleColor() {
+                if (state !== 'green') return;
+                setGoColor(getRandomGoColor());
+                colorCycleTimeout = setTimeout(cycleColor, getRandomColorInterval());
+            }
+            cycleColor();
+        }
+
+        function stopColorCycling() {
+            if (colorCycleTimeout) {
+                clearTimeout(colorCycleTimeout);
+                colorCycleTimeout = null;
+            }
         }
 
         function setRed() {
-            light.classList.remove('green');
+            stopColorCycling();
+            light.classList.remove('green', 'yellow', 'orange', 'blue');
             light.classList.add('red');
         }
 
         function getRandomGreenDuration() {
-            return 2000 + Math.random() * 4000;
+            return 2000 + Math.random() * 4000; // 2 to 6 seconds of green
         }
 
         function getRandomStartDelay() {
-            return 1000 + Math.random() * 2000;
+            return 1000 + Math.random() * 2000; // 1 to 3 seconds before green
         }
 
         function showTap() {
@@ -241,6 +331,18 @@
             setTimeout(() => {
                 tapIndicator.textContent = '';
             }, 100);
+        }
+
+        function failHesitation(splitTime) {
+            hesitated = true;
+            hesitationSplit = splitTime;
+            state = 'ended';
+            stopColorCycling();
+            setRed();
+            result.textContent = `Hesitated! ${Math.round(splitTime)}ms (max ${Math.round(baselineSplit * 2)}ms)`;
+            result.className = 'result fail';
+            status.textContent = 'Press Start to try again';
+            startBtn.disabled = false;
         }
 
         function updateHistory() {
@@ -272,10 +374,14 @@
             lastTapAfterRed = null;
             tapsAfterRed = 0;
             tapTimes = [];
+            baselineSplit = null;
+            hesitated = false;
+            hesitationSplit = null;
 
             resetLight();
             result.textContent = '';
             result.className = 'result';
+            timingBreakdown.innerHTML = '';
             tapCountEl.textContent = '0';
             splitTimeEl.textContent = '-';
             tapsAfterRedEl.textContent = '0';
@@ -290,7 +396,7 @@
                 if (state !== 'countdown') return;
 
                 state = 'green';
-                setGreen();
+                startColorCycling();
                 status.textContent = 'GO! Tap SPACEBAR!';
                 stats.style.display = 'flex';
 
@@ -304,6 +410,7 @@
                     redTime = performance.now();
                     status.textContent = 'STOP!';
 
+                    // Wait 1 second to see if they tap after red
                     setTimeout(() => {
                         endRound();
                     }, 1000);
@@ -330,16 +437,51 @@
                     result.className = 'result fail';
                 }
                 stopTimeEl.textContent = `${stopTime}ms`;
-                roundHistory.push({ stopTime: stopTime });
+                roundHistory.push({ success: true, taps: tapCount, stopTime: stopTime });
             } else {
                 result.textContent = `Perfect! ${tapCount} taps, instant stop`;
                 result.className = 'result success';
                 stopTimeEl.textContent = '0ms';
-                roundHistory.push({ stopTime: 0 });
+                roundHistory.push({ success: true, taps: tapCount, stopTime: 0 });
             }
 
             status.textContent = 'Press Start for next round';
             updateHistory();
+            updateTimingBreakdown();
+        }
+
+        function updateTimingBreakdown() {
+            const lastGoodTap = tapTimes.length > 0 ? tapTimes[tapTimes.length - 1] : null;
+
+            let html = '';
+
+            if (lastGoodTap !== null && redTime !== null) {
+                const lastGoodToRed = Math.round(redTime - lastGoodTap);
+                html += `<span class="event good">Last Good Tap</span>`;
+                html += `<span class="arrow">→</span><span class="interval">${lastGoodToRed}ms</span><span class="arrow">→</span>`;
+                html += `<span class="event red-event">RED</span>`;
+
+                if (firstTapAfterRed !== null) {
+                    const redToFirstBad = Math.round(firstTapAfterRed - redTime);
+                    html += `<span class="arrow">→</span><span class="interval">${redToFirstBad}ms</span><span class="arrow">→</span>`;
+                    html += `<span class="event bad">First Bad Tap</span>`;
+
+                    if (tapsAfterRed > 1 && lastTapAfterRed !== firstTapAfterRed) {
+                        const firstBadToLast = Math.round(lastTapAfterRed - firstTapAfterRed);
+                        html += `<span class="arrow">→</span><span class="interval">${firstBadToLast}ms</span><span class="arrow">→</span>`;
+                        html += `<span class="event bad">Last Tap</span>`;
+                    }
+                }
+            } else if (redTime !== null && tapTimes.length === 0) {
+                html += `<span class="event red-event">RED</span>`;
+                if (firstTapAfterRed !== null) {
+                    const redToFirstBad = Math.round(firstTapAfterRed - redTime);
+                    html += `<span class="arrow">→</span><span class="interval">${redToFirstBad}ms</span><span class="arrow">→</span>`;
+                    html += `<span class="event bad">First Bad Tap</span>`;
+                }
+            }
+
+            timingBreakdown.innerHTML = html;
         }
 
         function handleKeyDown(e) {
@@ -347,11 +489,31 @@
             e.preventDefault();
 
             if (state === 'green') {
-                tapTimes.push(performance.now());
+                const now = performance.now();
+                tapTimes.push(now);
                 tapCount++;
                 tapCountEl.textContent = tapCount;
 
+                // Calculate split time for this tap
                 if (tapTimes.length >= 2) {
+                    const lastSplit = tapTimes[tapTimes.length - 1] - tapTimes[tapTimes.length - 2];
+
+                    // After 3 taps, establish baseline from first 2 splits
+                    if (tapTimes.length === 3) {
+                        const split1 = tapTimes[1] - tapTimes[0];
+                        const split2 = tapTimes[2] - tapTimes[1];
+                        baselineSplit = (split1 + split2) / 2;
+                    }
+
+                    // After baseline established, check for hesitation
+                    if (baselineSplit !== null && tapTimes.length > 3) {
+                        if (lastSplit > baselineSplit * 2) {
+                            failHesitation(lastSplit);
+                            return;
+                        }
+                    }
+
+                    // Calculate and display average split time
                     let totalSplit = 0;
                     for (let i = 1; i < tapTimes.length; i++) {
                         totalSplit += tapTimes[i] - tapTimes[i - 1];
@@ -371,7 +533,9 @@
                 tapsAfterRedEl.textContent = tapsAfterRed;
                 showTap();
             } else if (state === 'countdown') {
+                // Tapped before green - false start
                 state = 'ended';
+                stopColorCycling();
                 resetLight();
                 result.textContent = 'False start! Wait for green.';
                 result.className = 'result fail';
@@ -383,6 +547,7 @@
         startBtn.addEventListener('click', startRound);
         document.addEventListener('keydown', handleKeyDown);
 
+        // Prevent spacebar from scrolling
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Space') {
                 e.preventDefault();

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reaction Time Tester</title>
+    <title>Reaction Time Games</title>
     <style>
         * {
             margin: 0;
@@ -20,197 +20,128 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            user-select: none;
+            padding: 2rem;
         }
 
         h1 {
-            margin-bottom: 2rem;
+            margin-bottom: 0.5rem;
             font-weight: 300;
+            font-size: 2.5rem;
         }
 
-        .light {
-            width: 200px;
-            height: 200px;
-            border-radius: 50%;
-            background: #2ecc71;
-            box-shadow: 0 0 60px #2ecc71;
-            transition: background 0.05s, box-shadow 0.05s;
-            margin-bottom: 2rem;
-        }
-
-        .light.red {
-            background: #e74c3c;
-            box-shadow: 0 0 60px #e74c3c;
-        }
-
-        .light.yellow {
-            background: #f1c40f;
-            box-shadow: 0 0 60px #f1c40f;
-        }
-
-        .instructions {
-            font-size: 1.2rem;
-            text-align: center;
-            max-width: 400px;
-            line-height: 1.6;
-            color: #aaa;
-        }
-
-        .result {
-            font-size: 3rem;
-            font-weight: bold;
-            margin: 1rem 0;
-            min-height: 4rem;
-        }
-
-        .result.good {
-            color: #2ecc71;
-        }
-
-        .result.ok {
-            color: #f1c40f;
-        }
-
-        .result.slow {
-            color: #e74c3c;
-        }
-
-        .status {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            min-height: 2rem;
-        }
-
-        .history {
-            margin-top: 2rem;
-            font-size: 0.9rem;
+        .subtitle {
             color: #888;
+            margin-bottom: 3rem;
         }
 
-        .history span {
-            margin: 0 0.5rem;
+        .games {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .game-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.2s, transform 0.2s;
+        }
+
+        .game-card:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-2px);
+        }
+
+        .game-card h2 {
+            font-size: 1.4rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .game-card .difficulty {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-weight: normal;
+        }
+
+        .difficulty.easy {
+            background: #2ecc71;
+            color: #000;
+        }
+
+        .difficulty.medium {
+            background: #f1c40f;
+            color: #000;
+        }
+
+        .difficulty.hard {
+            background: #e74c3c;
+            color: #fff;
+        }
+
+        .game-card p {
+            color: #aaa;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .game-card .features {
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .section-title {
+            width: 100%;
+            max-width: 500px;
+            font-size: 0.9rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+            margin-top: 1rem;
         }
     </style>
 </head>
 <body>
-    <h1>Reaction Time Tester</h1>
-    <div class="light" id="light"></div>
-    <div class="status" id="status">Hold SPACEBAR to start</div>
-    <div class="result" id="result"></div>
-    <div class="instructions" id="instructions">
-        Hold the spacebar, wait for the light to turn RED, then release as fast as you can!
+    <h1>Reaction Time Games</h1>
+    <p class="subtitle">Test your reflexes</p>
+
+    <div class="section-title">Stop Games (Hold &amp; Release)</div>
+    <div class="games">
+        <a href="stop.html" class="game-card">
+            <h2>Stop <span class="difficulty easy">Easy</span></h2>
+            <p>Hold the spacebar, wait for the light to turn red, then release as fast as you can.</p>
+            <div class="features">Simple green-yellow-red sequence</div>
+        </a>
+
+        <a href="stop2.html" class="game-card">
+            <h2>Stop 2 <span class="difficulty medium">Medium</span></h2>
+            <p>Same as Stop, but the light cycles through random colors. Only RED means release!</p>
+            <div class="features">Color cycling distraction</div>
+        </a>
     </div>
-    <div class="history" id="history"></div>
 
-    <script>
-        const light = document.getElementById('light');
-        const status = document.getElementById('status');
-        const result = document.getElementById('result');
-        const history = document.getElementById('history');
+    <div class="section-title">Go/Stop Games (Tap &amp; Stop)</div>
+    <div class="games">
+        <a href="gostop.html" class="game-card">
+            <h2>Go/Stop <span class="difficulty easy">Easy</span></h2>
+            <p>Tap the spacebar as fast as you can while green, stop immediately when it turns red.</p>
+            <div class="features">Basic tap counting, stop time measurement</div>
+        </a>
 
-        let state = 'waiting'; // waiting, holding, ready, measuring
-        let timeoutId = null;
-        let startTime = null;
-        let results = [];
-
-        function resetLight() {
-            light.classList.remove('red', 'yellow');
-        }
-
-        function setRed() {
-            light.classList.add('red');
-            light.classList.remove('yellow');
-        }
-
-        function setYellow() {
-            light.classList.add('yellow');
-            light.classList.remove('red');
-        }
-
-        function getRandomDelay() {
-            return 500 + Math.random() * 2500; // 0.5 to 3 seconds
-        }
-
-        function updateHistory() {
-            if (results.length === 0) {
-                history.textContent = '';
-                return;
-            }
-            const last5 = results.slice(-5);
-            const avg = Math.round(last5.reduce((a, b) => a + b, 0) / last5.length);
-            history.innerHTML = `Last ${last5.length}: ${last5.map(r => `<span>${r}ms</span>`).join('')} | Avg: ${avg}ms`;
-        }
-
-        function showResult(time) {
-            results.push(time);
-            result.textContent = `${time} ms`;
-            result.className = 'result';
-
-            if (time < 200) {
-                result.classList.add('good');
-            } else if (time < 350) {
-                result.classList.add('ok');
-            } else {
-                result.classList.add('slow');
-            }
-
-            updateHistory();
-        }
-
-        function handleKeyDown(e) {
-            if (e.code !== 'Space' || e.repeat) return;
-            e.preventDefault();
-
-            if (state === 'waiting') {
-                state = 'holding';
-                setYellow();
-                status.textContent = 'Wait for RED...';
-                result.textContent = '';
-                result.className = 'result';
-
-                const delay = getRandomDelay();
-                timeoutId = setTimeout(() => {
-                    if (state === 'holding') {
-                        state = 'measuring';
-                        setRed();
-                        status.textContent = 'RELEASE NOW!';
-                        startTime = performance.now();
-                    }
-                }, delay);
-            }
-        }
-
-        function handleKeyUp(e) {
-            if (e.code !== 'Space') return;
-            e.preventDefault();
-
-            if (state === 'holding') {
-                // Released too early
-                clearTimeout(timeoutId);
-                state = 'waiting';
-                resetLight();
-                status.textContent = 'Too early! Hold SPACEBAR to try again';
-                result.textContent = 'Too early!';
-                result.className = 'result slow';
-            } else if (state === 'measuring') {
-                const endTime = performance.now();
-                const reactionTime = Math.round(endTime - startTime);
-                state = 'waiting';
-                resetLight();
-                status.textContent = 'Hold SPACEBAR to try again';
-                showResult(reactionTime);
-            }
-        }
-
-        document.addEventListener('keydown', handleKeyDown);
-        document.addEventListener('keyup', handleKeyUp);
-
-        // Prevent spacebar from scrolling
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') {
-                e.preventDefault();
-            }
-        });
-    </script>
+        <a href="gostop2.html" class="game-card">
+            <h2>Go/Stop 2 <span class="difficulty hard">Hard</span></h2>
+            <p>Same as Go/Stop, but with color cycling and hesitation detection. Don't slow down!</p>
+            <div class="features">Color cycling, hesitation = fail, timing breakdown</div>
+        </a>
+    </div>
 </body>
 </html>
