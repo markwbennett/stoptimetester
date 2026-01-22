@@ -186,7 +186,7 @@
 
     <div class="instructions">
         When the light turns GREEN, tap SPACEBAR as fast as you can.<br>
-        When it turns RED, stop immediately. You will be counted off for taps after it turns RED.
+        After 1-15 taps, it turns RED. Stop immediately! You will be counted off for taps after RED.
     </div>
 
     <div class="history" id="history"></div>
@@ -210,7 +210,7 @@
         let firstTapAfterRed = null;
         let lastTapAfterRed = null;
         let tapsAfterRed = 0;
-        let greenDuration = 0;
+        let targetTaps = 0; // random number of taps before red (1-15)
         let roundHistory = [];
         let tapTimes = [];
 
@@ -228,12 +228,24 @@
             light.classList.add('red');
         }
 
-        function getRandomGreenDuration() {
-            return 2000 + Math.random() * 4000;
+        function getRandomTargetTaps() {
+            return 1 + Math.floor(Math.random() * 15); // 1-15 taps
         }
 
         function getRandomStartDelay() {
             return 1000 + Math.random() * 2000;
+        }
+
+        function triggerRed() {
+            if (state !== 'green') return;
+            state = 'red';
+            setRed();
+            redTime = performance.now();
+            status.textContent = 'STOP!';
+
+            setTimeout(() => {
+                endRound();
+            }, 1000);
         }
 
         function showTap() {
@@ -293,22 +305,7 @@
                 setGreen();
                 status.textContent = 'GO! Tap SPACEBAR!';
                 stats.style.display = 'flex';
-
-                greenDuration = getRandomGreenDuration();
-
-                setTimeout(() => {
-                    if (state !== 'green') return;
-
-                    state = 'red';
-                    setRed();
-                    redTime = performance.now();
-                    status.textContent = 'STOP!';
-
-                    setTimeout(() => {
-                        endRound();
-                    }, 1000);
-
-                }, greenDuration);
+                targetTaps = getRandomTargetTaps();
 
             }, startDelay);
         }
@@ -361,6 +358,11 @@
                 }
 
                 showTap();
+
+                // Check if we've reached target taps
+                if (tapCount >= targetTaps) {
+                    triggerRed();
+                }
             } else if (state === 'red') {
                 const now = performance.now();
                 if (firstTapAfterRed === null) {
