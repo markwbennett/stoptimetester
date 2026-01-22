@@ -189,6 +189,8 @@
         let currentLetter = null;
         let stopLetter = null;
         let stopColor = null;
+        let cycleCount = 0;
+        let maxCycles = 25;
 
         const allColors = ['green', 'yellow', 'orange', 'blue', 'purple', 'red'];
         const colorHex = {
@@ -235,10 +237,26 @@
         }
 
         function startColorCycling() {
+            cycleCount = 0;
+            maxCycles = 15 + Math.floor(Math.random() * 11); // 15-25 cycles
+
             function cycle() {
                 if (state !== 'holding') return;
-                setColorAndLetter(getRandomColor(), getRandomLetter());
-                cycleTimeout = setTimeout(cycle, getRandomInterval());
+                cycleCount++;
+
+                // Force stop signal on last cycle
+                if (cycleCount >= maxCycles) {
+                    setColorAndLetter(stopColor, stopLetter);
+                } else {
+                    // Random, but avoid stop signal
+                    let color, letter;
+                    do {
+                        color = getRandomColor();
+                        letter = getRandomLetter();
+                    } while (color === stopColor && letter === stopLetter);
+                    setColorAndLetter(color, letter);
+                    cycleTimeout = setTimeout(cycle, getRandomInterval());
+                }
             }
 
             // Start with a non-stop combo
