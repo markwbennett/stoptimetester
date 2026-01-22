@@ -154,6 +154,10 @@
             <div class="stat-label">Taps</div>
         </div>
         <div class="stat">
+            <div class="stat-value" id="splitTime">-</div>
+            <div class="stat-label">Avg Split</div>
+        </div>
+        <div class="stat">
             <div class="stat-value" id="stopTime">-</div>
             <div class="stat-label">Stop Time</div>
         </div>
@@ -176,6 +180,7 @@
         const result = document.getElementById('result');
         const startBtn = document.getElementById('startBtn');
         const tapCountEl = document.getElementById('tapCount');
+        const splitTimeEl = document.getElementById('splitTime');
         const stopTimeEl = document.getElementById('stopTime');
         const stats = document.getElementById('stats');
         const tapIndicator = document.getElementById('tapIndicator');
@@ -188,6 +193,7 @@
         let tapsAfterRed = 0;
         let greenDuration = 0;
         let roundHistory = [];
+        let tapTimes = []; // timestamps of taps during green
 
         function resetLight() {
             light.classList.remove('red', 'green');
@@ -245,11 +251,13 @@
             redTime = null;
             lastTapAfterRed = null;
             tapsAfterRed = 0;
+            tapTimes = [];
 
             resetLight();
             result.textContent = '';
             result.className = 'result';
             tapCountEl.textContent = '0';
+            splitTimeEl.textContent = '-';
             stopTimeEl.textContent = '-';
             stats.style.display = 'none';
             startBtn.disabled = true;
@@ -319,8 +327,20 @@
             e.preventDefault();
 
             if (state === 'green') {
+                tapTimes.push(performance.now());
                 tapCount++;
                 tapCountEl.textContent = tapCount;
+
+                // Calculate and display average split time
+                if (tapTimes.length >= 2) {
+                    let totalSplit = 0;
+                    for (let i = 1; i < tapTimes.length; i++) {
+                        totalSplit += tapTimes[i] - tapTimes[i - 1];
+                    }
+                    const avgSplit = Math.round(totalSplit / (tapTimes.length - 1));
+                    splitTimeEl.textContent = `${avgSplit}ms`;
+                }
+
                 showTap();
             } else if (state === 'red') {
                 lastTapAfterRed = performance.now();
