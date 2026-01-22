@@ -132,6 +132,48 @@
             color: #e74c3c;
         }
 
+        .timing-breakdown {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.95rem;
+            min-height: 3rem;
+        }
+
+        .timing-breakdown .event {
+            display: inline-block;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            margin: 0.2rem;
+        }
+
+        .timing-breakdown .good {
+            background: #2ecc71;
+            color: #000;
+        }
+
+        .timing-breakdown .red-event {
+            background: #e74c3c;
+            color: #fff;
+        }
+
+        .timing-breakdown .bad {
+            background: #e67e22;
+            color: #fff;
+        }
+
+        .timing-breakdown .arrow {
+            color: #888;
+            margin: 0 0.3rem;
+        }
+
+        .timing-breakdown .interval {
+            color: #f1c40f;
+            font-weight: bold;
+        }
+
         .start-btn {
             background: #3498db;
             color: white;
@@ -182,10 +224,12 @@
 
     <div class="result" id="result"></div>
 
+    <div class="timing-breakdown" id="timingBreakdown"></div>
+
     <button class="start-btn" id="startBtn">Start Round</button>
 
     <div class="instructions">
-        When the light turns GREEN, tap SPACEBAR as fast as you can.<br>
+        When the light turns GREEN, tap SPACEBAR within 300ms!<br>
         After 1-15 taps, it turns RED. Stop immediately! You will be counted off for taps after RED.
     </div>
 
@@ -203,16 +247,20 @@
         const stats = document.getElementById('stats');
         const tapIndicator = document.getElementById('tapIndicator');
         const historyEl = document.getElementById('history');
+        const timingBreakdown = document.getElementById('timingBreakdown');
 
         let state = 'idle';
         let tapCount = 0;
         let redTime = null;
+        let greenStartTime = null;
+        let slowStartTimeout = null;
         let firstTapAfterRed = null;
         let lastTapAfterRed = null;
         let tapsAfterRed = 0;
         let targetTaps = 0; // random number of taps before red (1-15)
         let roundHistory = [];
         let tapTimes = [];
+        const MAX_START_DELAY = 300; // ms to start tapping
 
         function resetLight() {
             light.classList.remove('red', 'green');
@@ -238,6 +286,7 @@
 
         function triggerRed() {
             if (state !== 'green') return;
+            clearTimeout(slowStartTimeout);
             state = 'red';
             setRed();
             redTime = performance.now();
@@ -246,6 +295,16 @@
             setTimeout(() => {
                 endRound();
             }, 1000);
+        }
+
+        function failSlowStart() {
+            if (state !== 'green') return;
+            state = 'ended';
+            setRed();
+            result.textContent = 'Too slow to start! Must tap within 300ms';
+            result.className = 'result fail';
+            status.textContent = 'Press Start to try again';
+            startBtn.disabled = false;
         }
 
         function showTap() {
@@ -288,6 +347,7 @@
             resetLight();
             result.textContent = '';
             result.className = 'result';
+            timingBreakdown.innerHTML = '';
             tapCountEl.textContent = '0';
             splitTimeEl.textContent = '-';
             tapsAfterRedEl.textContent = '0';
@@ -303,9 +363,13 @@
 
                 state = 'green';
                 setGreen();
+                greenStartTime = performance.now();
                 status.textContent = 'GO! Tap SPACEBAR!';
                 stats.style.display = 'flex';
                 targetTaps = getRandomTargetTaps();
+
+                // Fail if no tap within 300ms
+                slowStartTimeout = setTimeout(failSlowStart, MAX_START_DELAY);
 
             }, startDelay);
         }
@@ -337,6 +401,41 @@
 
             status.textContent = 'Press Start for next round';
             updateHistory();
+            updateTimingBreakdown();
+        }
+
+        function updateTimingBreakdown() {
+            const lastGoodTap = tapTimes.length > 0 ? tapTimes[tapTimes.length - 1] : null;
+
+            let html = '';
+
+            if (lastGoodTap !== null && redTime !== null) {
+                const lastGoodToRed = Math.round(redTime - lastGoodTap);
+                html += `<span class="event good">Last Good Tap</span>`;
+                html += `<span class="arrow">→</span><span class="interval">${lastGoodToRed}ms</span><span class="arrow">→</span>`;
+                html += `<span class="event red-event">RED</span>`;
+
+                if (firstTapAfterRed !== null) {
+                    const redToFirstBad = Math.round(firstTapAfterRed - redTime);
+                    html += `<span class="arrow">→</span><span class="interval">${redToFirstBad}ms</span><span class="arrow">→</span>`;
+                    html += `<span class="event bad">First Bad Tap</span>`;
+
+                    if (tapsAfterRed > 1 && lastTapAfterRed !== firstTapAfterRed) {
+                        const firstBadToLast = Math.round(lastTapAfterRed - firstTapAfterRed);
+                        html += `<span class="arrow">→</span><span class="interval">${firstBadToLast}ms</span><span class="arrow">→</span>`;
+                        html += `<span class="event bad">Last Tap</span>`;
+                    }
+                }
+            } else if (redTime !== null && tapTimes.length === 0) {
+                html += `<span class="event red-event">RED</span>`;
+                if (firstTapAfterRed !== null) {
+                    const redToFirstBad = Math.round(firstTapAfterRed - redTime);
+                    html += `<span class="arrow">→</span><span class="interval">${redToFirstBad}ms</span><span class="arrow">→</span>`;
+                    html += `<span class="event bad">First Bad Tap</span>`;
+                }
+            }
+
+            timingBreakdown.innerHTML = html;
         }
 
         function handleKeyDown(e) {
@@ -344,6 +443,11 @@
             e.preventDefault();
 
             if (state === 'green') {
+                // Clear slow start timeout on first tap
+                if (tapCount === 0) {
+                    clearTimeout(slowStartTimeout);
+                }
+
                 tapTimes.push(performance.now());
                 tapCount++;
                 tapCountEl.textContent = tapCount;

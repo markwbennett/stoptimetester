@@ -244,8 +244,8 @@
     <button class="start-btn" id="startBtn">Start Round</button>
 
     <div class="instructions">
-        When the light turns GREEN, tap SPACEBAR as fast as you can.<br>
-        When it turns RED, stop immediately. You will be counted off for taps after it turns RED.
+        When the light changes color, tap SPACEBAR within 300ms! Keep tapping fast.<br>
+        When it turns RED, stop immediately. Don't hesitate or slow down!
     </div>
 
     <div class="history" id="history"></div>
@@ -267,6 +267,8 @@
         let state = 'idle'; // idle, countdown, green, red, ended
         let tapCount = 0;
         let redTime = null;
+        let greenStartTime = null;
+        let slowStartTimeout = null;
         let firstTapAfterRed = null;
         let lastTapAfterRed = null;
         let tapsAfterRed = 0;
@@ -278,6 +280,7 @@
         let hesitationSplit = null;
         let colorCycleTimeout = null;
         const goColors = ['green', 'yellow', 'orange', 'blue'];
+        const MAX_START_DELAY = 300; // ms to start tapping
 
         function resetLight() {
             light.classList.remove('red', 'green', 'yellow', 'orange', 'blue');
@@ -338,8 +341,20 @@
             hesitationSplit = splitTime;
             state = 'ended';
             stopColorCycling();
+            clearTimeout(slowStartTimeout);
             setRed();
             result.textContent = `Hesitated! ${Math.round(splitTime)}ms (max ${Math.round(baselineSplit * 2)}ms)`;
+            result.className = 'result fail';
+            status.textContent = 'Press Start to try again';
+            startBtn.disabled = false;
+        }
+
+        function failSlowStart() {
+            if (state !== 'green') return;
+            state = 'ended';
+            stopColorCycling();
+            setRed();
+            result.textContent = 'Too slow to start! Must tap within 300ms';
             result.className = 'result fail';
             status.textContent = 'Press Start to try again';
             startBtn.disabled = false;
@@ -396,15 +411,20 @@
                 if (state !== 'countdown') return;
 
                 state = 'green';
+                greenStartTime = performance.now();
                 startColorCycling();
                 status.textContent = 'GO! Tap SPACEBAR!';
                 stats.style.display = 'flex';
+
+                // Fail if no tap within 300ms
+                slowStartTimeout = setTimeout(failSlowStart, MAX_START_DELAY);
 
                 greenDuration = getRandomGreenDuration();
 
                 setTimeout(() => {
                     if (state !== 'green') return;
 
+                    clearTimeout(slowStartTimeout);
                     state = 'red';
                     setRed();
                     redTime = performance.now();
@@ -489,6 +509,11 @@
             e.preventDefault();
 
             if (state === 'green') {
+                // Clear slow start timeout on first tap
+                if (tapCount === 0) {
+                    clearTimeout(slowStartTimeout);
+                }
+
                 const now = performance.now();
                 tapTimes.push(now);
                 tapCount++;
