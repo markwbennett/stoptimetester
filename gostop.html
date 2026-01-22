@@ -260,6 +260,9 @@
         let greenDuration = 0;
         let roundHistory = [];
         let tapTimes = []; // timestamps of taps during green
+        let baselineSplit = null; // average split from first 3 taps
+        let hesitated = false;
+        let hesitationSplit = null;
         let colorCycleTimeout = null;
         const goColors = ['green', 'yellow', 'orange', 'blue'];
 
@@ -317,6 +320,18 @@
             }, 100);
         }
 
+        function failHesitation(splitTime) {
+            hesitated = true;
+            hesitationSplit = splitTime;
+            state = 'ended';
+            stopColorCycling();
+            setRed();
+            result.textContent = `Hesitated! ${Math.round(splitTime)}ms (max ${Math.round(baselineSplit * 2)}ms)`;
+            result.className = 'result fail';
+            status.textContent = 'Press Start to try again';
+            startBtn.disabled = false;
+        }
+
         function updateHistory() {
             if (roundHistory.length === 0) {
                 historyEl.textContent = '';
@@ -346,6 +361,9 @@
             lastTapAfterRed = null;
             tapsAfterRed = 0;
             tapTimes = [];
+            baselineSplit = null;
+            hesitated = false;
+            hesitationSplit = null;
 
             resetLight();
             result.textContent = '';
@@ -458,12 +476,31 @@
             e.preventDefault();
 
             if (state === 'green') {
-                tapTimes.push(performance.now());
+                const now = performance.now();
+                tapTimes.push(now);
                 tapCount++;
                 tapCountEl.textContent = tapCount;
 
-                // Calculate and display average split time
+                // Calculate split time for this tap
                 if (tapTimes.length >= 2) {
+                    const lastSplit = tapTimes[tapTimes.length - 1] - tapTimes[tapTimes.length - 2];
+
+                    // After 3 taps, establish baseline from first 2 splits
+                    if (tapTimes.length === 3) {
+                        const split1 = tapTimes[1] - tapTimes[0];
+                        const split2 = tapTimes[2] - tapTimes[1];
+                        baselineSplit = (split1 + split2) / 2;
+                    }
+
+                    // After baseline established, check for hesitation
+                    if (baselineSplit !== null && tapTimes.length > 3) {
+                        if (lastSplit > baselineSplit * 2) {
+                            failHesitation(lastSplit);
+                            return;
+                        }
+                    }
+
+                    // Calculate and display average split time
                     let totalSplit = 0;
                     for (let i = 1; i < tapTimes.length; i++) {
                         totalSplit += tapTimes[i] - tapTimes[i - 1];
