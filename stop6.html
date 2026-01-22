@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stop 6 - Shooting Gallery</title>
+    <style>
+        .back-link {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        h1 {
+            margin-bottom: 1rem;
+            font-weight: 300;
+        }
+
+        .target-display {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem 1rem;
+            border: 2px solid;
+            border-radius: 8px;
+        }
+
+        .target-display .target-letter {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+
+        .target-display .target-color {
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .cell {
+            width: 120px;
+            height: 120px;
+            border-radius: 12px;
+            background: #555;
+            box-shadow: 0 0 20px #333;
+            transition: background 0.05s, box-shadow 0.05s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cell-letter {
+            font-size: 3.5rem;
+            font-weight: bold;
+            color: rgba(0, 0, 0, 0.5);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .cell.green {
+            background: #2ecc71;
+            box-shadow: 0 0 40px #2ecc71;
+        }
+
+        .cell.yellow {
+            background: #f1c40f;
+            box-shadow: 0 0 40px #f1c40f;
+        }
+
+        .cell.orange {
+            background: #e67e22;
+            box-shadow: 0 0 40px #e67e22;
+        }
+
+        .cell.blue {
+            background: #3498db;
+            box-shadow: 0 0 40px #3498db;
+        }
+
+        .cell.purple {
+            background: #9b59b6;
+            box-shadow: 0 0 40px #9b59b6;
+        }
+
+        .cell.red {
+            background: #e74c3c;
+            box-shadow: 0 0 40px #e74c3c;
+        }
+
+        .instructions {
+            font-size: 1.1rem;
+            text-align: center;
+            max-width: 450px;
+            line-height: 1.6;
+            color: #aaa;
+        }
+
+        .result {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 1rem 0;
+            min-height: 4rem;
+        }
+
+        .result.good {
+            color: #2ecc71;
+        }
+
+        .result.ok {
+            color: #f1c40f;
+        }
+
+        .result.slow {
+            color: #e74c3c;
+        }
+
+        .status {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            min-height: 2rem;
+        }
+
+        .history {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .history span {
+            margin: 0 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">&larr; Back to Menu</a>
+    <h1>Stop 6 - Shooting Gallery</h1>
+
+    <div class="target-display" id="targetDisplay">
+        Release on: <span class="target-letter" id="targetLetter">X</span> in <span class="target-color" id="targetColor">RED</span>
+    </div>
+
+    <div class="grid">
+        <div class="cell" id="cell0"><span class="cell-letter" id="letter0"></span></div>
+        <div class="cell" id="cell1"><span class="cell-letter" id="letter1"></span></div>
+        <div class="cell" id="cell2"><span class="cell-letter" id="letter2"></span></div>
+        <div class="cell" id="cell3"><span class="cell-letter" id="letter3"></span></div>
+    </div>
+
+    <div class="status" id="status">Hold SPACEBAR to start</div>
+    <div class="result" id="result"></div>
+    <div class="instructions">
+        Hold the spacebar. All four squares change independently.<br>
+        Release when you see the target letter in the target color in ANY square!
+    </div>
+    <div class="history" id="history"></div>
+
+    <script>
+        const cells = [0, 1, 2, 3].map(i => ({
+            cell: document.getElementById(`cell${i}`),
+            letter: document.getElementById(`letter${i}`),
+            color: null,
+            letterVal: null,
+            timeout: null
+        }));
+        const targetLetterEl = document.getElementById('targetLetter');
+        const targetColorEl = document.getElementById('targetColor');
+        const targetDisplay = document.getElementById('targetDisplay');
+        const status = document.getElementById('status');
+        const result = document.getElementById('result');
+        const history = document.getElementById('history');
+
+        let state = 'waiting';
+        let startTime = null;
+        let results = [];
+        let stopLetter = null;
+        let stopColor = null;
+        let cycleCount = 0;
+
+        const allColors = ['green', 'yellow', 'orange', 'blue', 'purple', 'red'];
+        const colorHex = {
+            green: '#2ecc71',
+            yellow: '#f1c40f',
+            orange: '#e67e22',
+            blue: '#3498db',
+            purple: '#9b59b6',
+            red: '#e74c3c'
+        };
+        const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'K', 'M', 'N', 'P', 'R', 'S', 'T', 'X'];
+
+        function resetCells() {
+            cells.forEach(c => {
+                c.cell.classList.remove('red', 'green', 'yellow', 'orange', 'blue', 'purple');
+                c.letter.textContent = '';
+                c.color = null;
+                c.letterVal = null;
+            });
+        }
+
+        function setCellColorAndLetter(index, color, letter) {
+            const c = cells[index];
+            c.cell.classList.remove('red', 'green', 'yellow', 'orange', 'blue', 'purple');
+            c.cell.classList.add(color);
+            c.letter.textContent = letter;
+            c.color = color;
+            c.letterVal = letter;
+
+            // Check if this is the stop signal
+            if (state === 'holding' && color === stopColor && letter === stopLetter) {
+                state = 'measuring';
+                stopAllCycling();
+                status.textContent = 'RELEASE NOW!';
+                startTime = performance.now();
+            }
+        }
+
+        function getRandomColor() {
+            return allColors[Math.floor(Math.random() * allColors.length)];
+        }
+
+        function getRandomLetter() {
+            return letters[Math.floor(Math.random() * letters.length)];
+        }
+
+        function getRandomInterval() {
+            return 300 + Math.random() * 500;
+        }
+
+        function startCellCycling(index) {
+            function cycle() {
+                if (state !== 'holding') return;
+                cycleCount++;
+
+                // After 3 total cycles, allow the stop signal
+                if (cycleCount > 3) {
+                    setCellColorAndLetter(index, getRandomColor(), getRandomLetter());
+                } else {
+                    let color, letter;
+                    do {
+                        color = getRandomColor();
+                        letter = getRandomLetter();
+                    } while (color === stopColor && letter === stopLetter);
+                    setCellColorAndLetter(index, color, letter);
+                }
+
+                if (state === 'holding') {
+                    cells[index].timeout = setTimeout(cycle, getRandomInterval());
+                }
+            }
+
+            // Start with non-stop combo
+            let firstColor, firstLetter;
+            do {
+                firstColor = getRandomColor();
+                firstLetter = getRandomLetter();
+            } while (firstColor === stopColor && firstLetter === stopLetter);
+
+            setCellColorAndLetter(index, firstColor, firstLetter);
+            cells[index].timeout = setTimeout(cycle, getRandomInterval());
+        }
+
+        function stopAllCycling() {
+            cells.forEach(c => {
+                if (c.timeout) {
+                    clearTimeout(c.timeout);
+                    c.timeout = null;
+                }
+            });
+        }
+
+        function updateHistory() {
+            if (results.length === 0) {
+                history.textContent = '';
+                return;
+            }
+            const last5 = results.slice(-5);
+            const avg = Math.round(last5.reduce((a, b) => a + b, 0) / last5.length);
+            history.innerHTML = `Last ${last5.length}: ${last5.map(r => `<span>${r}ms</span>`).join('')} | Avg: ${avg}ms`;
+        }
+
+        function showResult(time) {
+            results.push(time);
+            result.textContent = `${time} ms`;
+            result.className = 'result';
+
+            if (time < 200) {
+                result.classList.add('good');
+            } else if (time < 350) {
+                result.classList.add('ok');
+            } else {
+                result.classList.add('slow');
+            }
+
+            updateHistory();
+        }
+
+        function checkCurrentState() {
+            // Check if any cell currently shows the stop signal
+            for (const c of cells) {
+                if (c.color === stopColor && c.letterVal === stopLetter) {
+                    return { match: true, color: c.color, letter: c.letterVal };
+                }
+            }
+            // Check for partial matches
+            for (const c of cells) {
+                if (c.color === stopColor) {
+                    return { match: false, wrongLetter: true, letter: c.letterVal };
+                }
+                if (c.letterVal === stopLetter) {
+                    return { match: false, wrongColor: true, color: c.color };
+                }
+            }
+            return { match: false };
+        }
+
+        function handleKeyDown(e) {
+            if (e.code !== 'Space' || e.repeat) return;
+            e.preventDefault();
+
+            if (state === 'waiting') {
+                state = 'holding';
+                cycleCount = 0;
+
+                // Pick random stop letter AND color
+                stopLetter = getRandomLetter();
+                stopColor = getRandomColor();
+                targetLetterEl.textContent = stopLetter;
+                targetColorEl.textContent = stopColor.toUpperCase();
+                targetColorEl.style.color = colorHex[stopColor];
+                targetDisplay.style.borderColor = colorHex[stopColor];
+                targetDisplay.style.background = `${colorHex[stopColor]}33`;
+
+                // Start all cells cycling independently
+                cells.forEach((_, i) => startCellCycling(i));
+
+                status.textContent = `Wait for ${stopLetter} in ${stopColor.toUpperCase()}...`;
+                result.textContent = '';
+                result.className = 'result';
+            }
+        }
+
+        function handleKeyUp(e) {
+            if (e.code !== 'Space') return;
+            e.preventDefault();
+
+            if (state === 'holding') {
+                stopAllCycling();
+                state = 'waiting';
+                const check = checkCurrentState();
+                resetCells();
+
+                if (check.wrongLetter) {
+                    status.textContent = `Wrong letter! Saw ${check.letter}, need ${stopLetter}. Hold SPACEBAR`;
+                } else if (check.wrongColor) {
+                    status.textContent = `Wrong color! Saw ${check.color}, need ${stopColor}. Hold SPACEBAR`;
+                } else {
+                    status.textContent = 'Too early! Wait for the right combo. Hold SPACEBAR';
+                }
+                result.textContent = 'Too early!';
+                result.className = 'result slow';
+            } else if (state === 'measuring') {
+                const endTime = performance.now();
+                const reactionTime = Math.round(endTime - startTime);
+                state = 'waiting';
+                resetCells();
+                status.textContent = 'Hold SPACEBAR to try again';
+                showResult(reactionTime);
+            }
+        }
+
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>
