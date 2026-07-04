@@ -253,7 +253,6 @@
         let state = 'idle';
         let tapCount = 0;
         let redTime = null;
-        let greenStartTime = null;
         let slowStartTimeout = null;
         let firstTapAfterRed = null;
         let lastTapAfterRed = null;
@@ -365,7 +364,6 @@
 
                 state = 'green';
                 setGreen();
-                greenStartTime = performance.now();
                 status.textContent = 'GO! Tap SPACEBAR!';
                 stats.style.display = 'flex';
                 targetTaps = getRandomTargetTaps();
